@@ -1,6 +1,6 @@
 # panda-bot
 
-Verify that your private node dependencies works on all projects as intended
+Verify that your private yarn dependencies works on all projects as intended
 
 # SETUP
 
