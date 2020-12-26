@@ -1,47 +1,25 @@
 # frozen_string_literal: true
 
-require 'faraday'
-require 'awesome_print'
-require 'base64'
+require_relative 'lib/slack.rb'
+require_relative 'lib/github_event.rb'
 
 module App
   class Handler
-    POST_MESSAGE_URL = 'https://slack.com/api/chat.postMessage'
-    BOT_USER_TOKEN = ENV['SLACK_BOT_USER_TOKEN']
-    CHANNEL = '#nothing'
-
     class << self
       def process(event:, context:)
-        type = event['headers']['x-github-event'] rescue 'unknown'
-        body = event['isBase64Encoded'] ? Base64.decode64(event['body']) : event['body']
-        body = JSON.parse(body) if body.is_a?(String)
+        parsed_event = Github::Event.new(event)
 
-        is_tag_created = body['ref_type'] == 'tag'
+        messages = case parsed_event.type
+        when 'create' then Github.handle_create(parsed_event.body)
+        when 'status' then Github.handle_ci(parsed_event.body)
+        end
 
-        response = Faraday.post(
-          POST_MESSAGE_URL,
-          { channel: CHANNEL,
-            blocks: [
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  text: "something happened as #{type}"
-                }
-              },
-              {
-                type: 'section',
-                text: {
-                  type: 'mrkdwn',
-                  text: is_tag_created ? "Created tag #{body['ref']}" : 'yok bi sey'
-                }
-              }
-            ].to_json
-          },
-          { 'Authorization' => "Bearer #{BOT_USER_TOKEN}" }
-        )
+        Slack.send(messages) unless messages.nil?
+        { statusCode: 200, body: 'OK' }
+      rescue StandardError => e
+        Slack.send(["Error:", e.to_s.gsub(GitHelper::GIT_USER_PASSWORD, '<protected>')]) rescue nil
 
-        JSON.parse(response.body)
+        { statusCode: 500 , body: 'err' }
       end
     end
   end

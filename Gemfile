@@ -8,4 +8,8 @@ git_source(:github) do |repo_name|
 end
 
 gem 'faraday'
-gem 'awesome_print'
+gem 'git'
+
+group :development, :test do
+  gem 'awesome_print'
+end
